@@ -236,21 +236,23 @@ public class ExpressionParser
 
     public double EvaluateWithX(double x)
     {
-        // Replace x with its value by re-evaluating
-        // We need to modify the parser to use the x value
-        // Let's create a new approach - capture x reference
-        return EvaluateWithVariable(x);
+        return EvaluateWithVariable(x, 0);
     }
 
-    private double EvaluateWithVariable(double xValue)
+    public double EvaluateWithXY(double x, double y)
+    {
+        return EvaluateWithVariable(x, y);
+    }
+
+    private double EvaluateWithVariable(double xValue, double yValue)
     {
         _pos = 0;
-        return ParseExpressionWithX(xValue);
+        return ParseExpressionWithXY(xValue, yValue);
     }
 
-    private double ParseExpressionWithX(double xValue)
+    private double ParseExpressionWithXY(double xValue, double yValue)
     {
-        double result = ParseTermWithX(xValue);
+        double result = ParseTermWithXY(xValue, yValue);
 
         while (_pos < _expression.Length)
         {
@@ -258,12 +260,12 @@ public class ExpressionParser
             if (op == '+')
             {
                 _pos++;
-                result += ParseTermWithX(xValue);
+                result += ParseTermWithXY(xValue, yValue);
             }
             else if (op == '-')
             {
                 _pos++;
-                result -= ParseTermWithX(xValue);
+                result -= ParseTermWithXY(xValue, yValue);
             }
             else
             {
@@ -274,9 +276,9 @@ public class ExpressionParser
         return result;
     }
 
-    private double ParseTermWithX(double xValue)
+    private double ParseTermWithXY(double xValue, double yValue)
     {
-        double result = ParsePowerWithX(xValue);
+        double result = ParsePowerWithXY(xValue, yValue);
 
         while (_pos < _expression.Length)
         {
@@ -284,12 +286,12 @@ public class ExpressionParser
             if (op == '*' || op == '×')
             {
                 _pos++;
-                result *= ParsePowerWithX(xValue);
+                result *= ParsePowerWithXY(xValue, yValue);
             }
             else if (op == '/' || op == '÷')
             {
                 _pos++;
-                double divisor = ParsePowerWithX(xValue);
+                double divisor = ParsePowerWithXY(xValue, yValue);
                 if (divisor == 0)
                     throw new DivideByZeroException("Деление на ноль");
                 result /= divisor;
@@ -297,7 +299,7 @@ public class ExpressionParser
             else if (op == '%')
             {
                 _pos++;
-                result %= ParsePowerWithX(xValue);
+                result %= ParsePowerWithXY(xValue, yValue);
             }
             else
             {
@@ -308,46 +310,46 @@ public class ExpressionParser
         return result;
     }
 
-    private double ParsePowerWithX(double xValue)
+    private double ParsePowerWithXY(double xValue, double yValue)
     {
-        double result = ParseUnaryWithX(xValue);
+        double result = ParseUnaryWithXY(xValue, yValue);
 
         if (_pos < _expression.Length && _expression[_pos] == '^')
         {
             _pos++;
-            double exponent = ParsePowerWithX(xValue);
+            double exponent = ParsePowerWithXY(xValue, yValue);
             result = Math.Pow(result, exponent);
         }
 
         return result;
     }
 
-    private double ParseUnaryWithX(double xValue)
+    private double ParseUnaryWithXY(double xValue, double yValue)
     {
         if (_pos < _expression.Length)
         {
             if (_expression[_pos] == '-')
             {
                 _pos++;
-                return -ParseUnaryWithX(xValue);
+                return -ParseUnaryWithXY(xValue, yValue);
             }
             if (_expression[_pos] == '+')
             {
                 _pos++;
-                return ParseUnaryWithX(xValue);
+                return ParseUnaryWithXY(xValue, yValue);
             }
         }
 
-        return ParsePrimaryWithX(xValue);
+        return ParsePrimaryWithXY(xValue, yValue);
     }
 
-    private double ParsePrimaryWithX(double xValue)
+    private double ParsePrimaryWithXY(double xValue, double yValue)
     {
         // Parentheses
         if (_pos < _expression.Length && _expression[_pos] == '(')
         {
             _pos++;
-            double result = ParseExpressionWithX(xValue);
+            double result = ParseExpressionWithXY(xValue, yValue);
             if (_pos >= _expression.Length || _expression[_pos] != ')')
                 throw new FormatException("Ожидается ')'");
             _pos++;
@@ -361,10 +363,10 @@ public class ExpressionParser
         }
 
         // Variable or function
-        return ParseIdentifierWithX(xValue);
+        return ParseIdentifierWithXY(xValue, yValue);
     }
 
-    private double ParseIdentifierWithX(double xValue)
+    private double ParseIdentifierWithXY(double xValue, double yValue)
     {
         int start = _pos;
         while (_pos < _expression.Length && (char.IsLetterOrDigit(_expression[_pos]) || _expression[_pos] == '_'))
@@ -378,6 +380,7 @@ public class ExpressionParser
         if (name == "pi") return Math.PI;
         if (name == "e") return Math.E;
         if (name == "x") return xValue;
+        if (name == "y") return yValue;
         if (name == "true") return 1;
         if (name == "false") return 0;
 
@@ -406,7 +409,7 @@ public class ExpressionParser
             if (_pos >= _expression.Length || _expression[_pos] != '(')
                 throw new FormatException($"Ожидается '(' после '{name}'");
             _pos++;
-            double arg = ParseExpressionWithX(xValue);
+            double arg = ParseExpressionWithXY(xValue, yValue);
             if (_pos >= _expression.Length || _expression[_pos] != ')')
                 throw new FormatException($"Ожидается ')' после аргумента функции '{name}'");
             _pos++;

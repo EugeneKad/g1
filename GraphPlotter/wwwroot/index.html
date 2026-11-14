@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Построитель графиков</title>
+    <title>Построитель графиков 2D/3D</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.0.min.js" charset="utf-8"></script>
     <style>
         * {
             margin: 0;
@@ -189,9 +190,16 @@
     </style>
 </head>
 <body>
-    <h1>📈 Построитель графиков функций</h1>
+    <h1>📈 Построитель графиков 2D/3D</h1>
 
     <div class="controls">
+        <div class="control-group">
+            <label for="mode">Режим</label>
+            <select id="mode" onchange="toggleMode()" style="background: #0f3460; border: 1px solid #1a4a7a; color: #e0e0e0; padding: 10px 14px; border-radius: 8px; font-size: 1em; outline: none;">
+                <option value="2d">2D</option>
+                <option value="3d">3D</option>
+            </select>
+        </div>
         <div class="control-group formula-group">
             <label for="formula">f(x) =</label>
             <input type="text" id="formula" placeholder="Введите формулу, например: sin(x)" value="sin(x)">
@@ -203,6 +211,14 @@
         <div class="control-group">
             <label for="xMax">x max</label>
             <input type="number" id="xMax" value="10">
+        </div>
+        <div class="control-group" id="yMinGroup" style="display: none;">
+            <label for="yMin">y min</label>
+            <input type="number" id="yMin" value="-5">
+        </div>
+        <div class="control-group" id="yMaxGroup" style="display: none;">
+            <label for="yMax">y max</label>
+            <input type="number" id="yMax" value="5">
         </div>
         <div class="control-group">
             <label for="points">точек</label>
@@ -230,11 +246,20 @@
             <button class="example-btn" onclick="setExample('log(x)')">log(x)</button>
             <button class="example-btn" onclick="setExample('ln(x)')">ln(x)</button>
             <button class="example-btn" onclick="setExample('2*sin(x) + cos(x/2)')">2sin(x)+cos(x/2)</button>
+            <button class="example-btn" onclick="set3dExample('sin(sqrt(x^2 + y^2))')">sin(√(x²+y²))</button>
+            <button class="example-btn" onclick="set3dExample('sin(x)*cos(y)')">sin(x)·cos(y)</button>
+            <button class="example-btn" onclick="set3dExample('x^2 - y^2')">x² - y²</button>
+            <button class="example-btn" onclick="set3dExample('exp(-(x^2 + y^2))')">e^(-(x²+y²))</button>
+            <button class="example-btn" onclick="set3dExample('sin(x)/x * sin(y)/y')">sinc(x)·sinc(y)</button>
+            <button class="example-btn" onclick="set3dExample('cos(x)*cos(y)')">cos(x)·cos(y)</button>
         </div>
     </div>
 
-    <div class="chart-container">
+    <div class="chart-container" id="chart2dContainer">
         <canvas id="graphCanvas"></canvas>
+    </div>
+    <div class="chart-container" id="chart3dContainer" style="display: none;">
+        <div id="graph3d" style="width: 100%; height: 100%;"></div>
     </div>
 
     <div class="supported">
@@ -244,22 +269,57 @@
             <code>sqrt</code> <code>abs</code> <code>log</code> <code>ln</code> <code>exp</code> |
             <code>ceil</code> <code>floor</code> <code>round</code> <code>sign</code> |
             <code>pi</code> <code>e</code> |
+            переменные: <code>x</code>, <code>y</code> (для 3D) |
             операторы: <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>^</code>
         </p>
     </div>
 
     <script>
         let chart = null;
+        let chart3d = null;
 
         function setExample(formula) {
             document.getElementById('formula').value = formula;
+            document.getElementById('mode').value = '2d';
+            toggleMode();
             plotGraph();
+        }
+
+        function set3dExample(formula) {
+            document.getElementById('formula').value = formula;
+            document.getElementById('mode').value = '3d';
+            toggleMode();
+            plotGraph();
+        }
+
+        function toggleMode() {
+            const mode = document.getElementById('mode').value;
+            const yMinGroup = document.getElementById('yMinGroup');
+            const yMaxGroup = document.getElementById('yMaxGroup');
+            const chart2dContainer = document.getElementById('chart2dContainer');
+            const chart3dContainer = document.getElementById('chart3dContainer');
+            const formulaInput = document.getElementById('formula');
+
+            if (mode === '3d') {
+                yMinGroup.style.display = 'flex';
+                yMaxGroup.style.display = 'flex';
+                chart2dContainer.style.display = 'none';
+                chart3dContainer.style.display = 'block';
+                formulaInput.placeholder = 'Введите формулу z = f(x,y), например: sin(x)*cos(y)';
+            } else {
+                yMinGroup.style.display = 'none';
+                yMaxGroup.style.display = 'none';
+                chart2dContainer.style.display = 'block';
+                chart3dContainer.style.display = 'none';
+                formulaInput.placeholder = 'Введите формулу, например: sin(x)';
+            }
         }
 
         async function plotGraph() {
             const errorEl = document.getElementById('error');
             errorEl.textContent = '';
 
+            const mode = document.getElementById('mode').value;
             const formula = document.getElementById('formula').value.trim();
             const xMin = parseFloat(document.getElementById('xMin').value);
             const xMax = parseFloat(document.getElementById('xMax').value);
@@ -281,95 +341,163 @@
             }
 
             try {
-                const url = `/api/graph/points?formula=${encodeURIComponent(formula)}&xMin=${xMin}&xMax=${xMax}&points=${points}`;
-                const response = await fetch(url);
+                if (mode === '3d') {
+                    const yMin = parseFloat(document.getElementById('yMin').value);
+                    const yMax = parseFloat(document.getElementById('yMax').value);
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText);
-                }
+                    if (isNaN(yMin) || isNaN(yMax) || yMin >= yMax) {
+                        errorEl.textContent = 'Некорректный диапазон y';
+                        return;
+                    }
 
-                const data = await response.json();
+                    const url = `/api/graph/surface?formula=${encodeURIComponent(formula)}&xMin=${xMin}&xMax=${xMax}&yMin=${yMin}&yMax=${yMax}&gridSize=${Math.min(points, 150)}`;
+                    const response = await fetch(url);
 
-                const labels = data.xValues.map((x, i) => ({ x: x, y: data.yValues[i] }));
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(errorText);
+                    }
 
-                if (chart) {
-                    chart.destroy();
-                }
+                    const data = await response.json();
 
-                const ctx = document.getElementById('graphCanvas').getContext('2d');
+                    if (chart3d) {
+                        Plotly.purge('graph3d');
+                        chart3d = null;
+                    }
 
-                chart = new Chart(ctx, {
-                    type: 'scatter',
-                    data: {
-                        datasets: [{
-                            label: `f(x) = ${formula}`,
-                            data: labels,
-                            showLine: true,
-                            tension: 0.3,
-                            pointRadius: 0,
-                            pointHitRadius: 5,
-                            borderWidth: 2.5,
-                            borderColor: '#00d4ff',
-                            backgroundColor: 'rgba(0, 212, 255, 0.1)',
-                            fill: true,
-                            spanGaps: false
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: {
-                            duration: 600
-                        },
-                        scales: {
-                            x: {
-                                type: 'linear',
-                                title: {
-                                    display: true,
-                                    text: 'x',
-                                    color: '#a0a0b0',
-                                    font: { size: 14 }
-                                },
-                                ticks: { color: '#a0a0b0' },
-                                grid: { color: 'rgba(255, 255, 255, 0.05)' }
-                            },
-                            y: {
-                                type: 'linear',
-                                title: {
-                                    display: true,
-                                    text: 'f(x)',
-                                    color: '#a0a0b0',
-                                    font: { size: 14 }
-                                },
-                                ticks: { color: '#a0a0b0' },
-                                grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                    const xArr = [];
+                    const yArr = [];
+                    const zArr = [];
+
+                    for (let i = 0; i < data.gridSize; i++) {
+                        xArr.push(data.xValues[i][0]);
+                        for (let j = 0; j < data.gridSize; j++) {
+                            if (i === 0) yArr.push(data.yValues[0][j]);
+                            zArr.push(data.zValues[i][j]);
+                        }
+                    }
+
+                    const trace = {
+                        z: data.zValues,
+                        x: data.xValues.map(row => row[0]),
+                        y: data.yValues[0],
+                        type: 'surface',
+                        colorscale: 'Viridis',
+                        showscale: true,
+                        contours: {
+                            z: { show: true, usecolormap: true, highlightcolor: '#ff0000', project: { z: true } }
+                        }
+                    };
+
+                    const layout = {
+                        title: `z = ${formula}`,
+                        scene: {
+                            xaxis: { title: 'x', color: '#e0e0e0' },
+                            yaxis: { title: 'y', color: '#e0e0e0' },
+                            zaxis: { title: 'z', color: '#e0e0e0' },
+                            bgcolor: '#16213e',
+                            camera: {
+                                eye: { x: 1.5, y: 1.5, z: 1.2 }
                             }
                         },
-                        plugins: {
-                            legend: {
-                                labels: { color: '#e0e0e0', font: { size: 13 } }
+                        paper_bgcolor: '#16213e',
+                        plot_bgcolor: '#16213e',
+                        font: { color: '#e0e0e0' },
+                        margin: { l: 0, r: 0, t: 40, b: 0 }
+                    };
+
+                    Plotly.newPlot('graph3d', [trace], layout, { responsive: true });
+                } else {
+                    const url = `/api/graph/points?formula=${encodeURIComponent(formula)}&xMin=${xMin}&xMax=${xMax}&points=${points}`;
+                    const response = await fetch(url);
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(errorText);
+                    }
+
+                    const data = await response.json();
+
+                    const labels = data.xValues.map((x, i) => ({ x: x, y: data.yValues[i] }));
+
+                    if (chart) {
+                        chart.destroy();
+                    }
+
+                    const ctx = document.getElementById('graphCanvas').getContext('2d');
+
+                    chart = new Chart(ctx, {
+                        type: 'scatter',
+                        data: {
+                            datasets: [{
+                                label: `f(x) = ${formula}`,
+                                data: labels,
+                                showLine: true,
+                                tension: 0.3,
+                                pointRadius: 0,
+                                pointHitRadius: 5,
+                                borderWidth: 2.5,
+                                borderColor: '#00d4ff',
+                                backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                                fill: true,
+                                spanGaps: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: {
+                                duration: 600
                             },
-                            tooltip: {
-                                backgroundColor: 'rgba(22, 33, 62, 0.95)',
-                                titleColor: '#00d4ff',
-                                bodyColor: '#e0e0e0',
-                                borderColor: '#1a4a7a',
-                                borderWidth: 1,
-                                callbacks: {
-                                    title: function(items) {
-                                        return `x = ${items[0].parsed.x.toFixed(4)}`;
+                            scales: {
+                                x: {
+                                    type: 'linear',
+                                    title: {
+                                        display: true,
+                                        text: 'x',
+                                        color: '#a0a0b0',
+                                        font: { size: 14 }
                                     },
-                                    label: function(item) {
-                                        const y = item.parsed.y;
-                                        if (isNaN(y)) return null;
-                                        return `f(x) = ${y.toFixed(4)}`;
+                                    ticks: { color: '#a0a0b0' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                                },
+                                y: {
+                                    type: 'linear',
+                                    title: {
+                                        display: true,
+                                        text: 'f(x)',
+                                        color: '#a0a0b0',
+                                        font: { size: 14 }
+                                    },
+                                    ticks: { color: '#a0a0b0' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    labels: { color: '#e0e0e0', font: { size: 13 } }
+                                },
+                                tooltip: {
+                                    backgroundColor: 'rgba(22, 33, 62, 0.95)',
+                                    titleColor: '#00d4ff',
+                                    bodyColor: '#e0e0e0',
+                                    borderColor: '#1a4a7a',
+                                    borderWidth: 1,
+                                    callbacks: {
+                                        title: function(items) {
+                                            return `x = ${items[0].parsed.x.toFixed(4)}`;
+                                        },
+                                        label: function(item) {
+                                            const y = item.parsed.y;
+                                            if (isNaN(y)) return null;
+                                            return `f(x) = ${y.toFixed(4)}`;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                });
+                    });
+                }
 
             } catch (err) {
                 errorEl.textContent = `Ошибка: ${err.message}`;
@@ -382,7 +510,10 @@
         });
 
         // Auto-plot on load
-        window.addEventListener('load', plotGraph);
+        window.addEventListener('load', function() {
+            toggleMode();
+            plotGraph();
+        });
     </script>
 </body>
 </html>

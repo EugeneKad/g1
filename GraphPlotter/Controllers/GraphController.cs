@@ -68,6 +68,78 @@ public class GraphController : ControllerBase
         }
     }
 
+    [HttpGet("surface")]
+    public IActionResult GetSurfacePoints(
+        [FromQuery] string formula,
+        [FromQuery] double xMin = -5,
+        [FromQuery] double xMax = 5,
+        [FromQuery] double yMin = -5,
+        [FromQuery] double yMax = 5,
+        [FromQuery] int gridSize = 100)
+    {
+        if (string.IsNullOrWhiteSpace(formula))
+            return BadRequest("Формула не указана");
+
+        formula = formula.Trim();
+
+        if (!ExpressionParser.IsValidExpression(formula))
+            return BadRequest($"Некорректная формула: '{formula}'");
+
+        try
+        {
+            var parser = new ExpressionParser(formula);
+            var xValues = new double[gridSize, gridSize];
+            var yValues = new double[gridSize, gridSize];
+            var zValues = new double[gridSize, gridSize];
+
+            double xStep = (xMax - xMin) / (gridSize - 1);
+            double yStep = (yMax - yMin) / (gridSize - 1);
+
+            for (int i = 0; i < gridSize; i++)
+            {
+                for (int j = 0; j < gridSize; j++)
+                {
+                    double x = xMin + i * xStep;
+                    double y = yMin + j * yStep;
+                    try
+                    {
+                        double z = parser.EvaluateWithXY(x, y);
+                        xValues[i, j] = x;
+                        yValues[i, j] = y;
+                        zValues[i, j] = z;
+                    }
+                    catch (DivideByZeroException)
+                    {
+                        xValues[i, j] = x;
+                        yValues[i, j] = y;
+                        zValues[i, j] = double.NaN;
+                    }
+                    catch (OverflowException)
+                    {
+                        xValues[i, j] = x;
+                        yValues[i, j] = y;
+                        zValues[i, j] = double.NaN;
+                    }
+                }
+            }
+
+            return Ok(new
+            {
+                formula,
+                xRange = new { Min = xMin, Max = xMax },
+                yRange = new { Min = yMin, Max = yMax },
+                gridSize,
+                xValues,
+                yValues,
+                zValues
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Ошибка вычисления: {ex.Message}");
+        }
+    }
+
     [HttpPost("validate")]
     public IActionResult ValidateFormula([FromBody] ValidateFormulaRequest request)
     {
