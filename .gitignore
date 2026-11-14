@@ -1,0 +1,72 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## VS Code
+.vscode/
+
+## JetBrains Rider
+*.sln.iml
+.idea/
+*.sln.settings/
+media/
+
+## NuGet
+packages/
+*.nupkg
+*.nuget.props
+*.nuget.targets
+
+## Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]uilds/
+logs/
+result/
+
+## Visual Studio 2015/2017 cache/options directory
+.vs/
+
+## Visual Studio profiler
+*.psess
+*.vsp
+*.vspx
+*.sap
+
+## Visual Studio Trace Files
+*.e2e
+
+## TFS 2012 Local Workspace
+$tf/
+
+## NuGet Package Files
+*.nupkg
+**/packages/*
+
+## Tools
+artifacts/
+
+## Windows image file caches
+cache/
+
+## Folder config file
+PanoramaCache
+
+## App data
+AppData/
+LocalData/
+
+## Template
+playground/
