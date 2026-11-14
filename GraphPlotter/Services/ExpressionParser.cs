@@ -194,6 +194,7 @@ public class ExpressionParser
         if (name == "pi") return Math.PI;
         if (name == "e") return Math.E;
         if (name == "x") return 0; // will be set during evaluation
+        if (name == "y") return 0; // will be set during evaluation
         if (name == "true") return 1;
         if (name == "false") return 0;
 

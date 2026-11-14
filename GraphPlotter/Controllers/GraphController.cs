@@ -88,37 +88,41 @@ public class GraphController : ControllerBase
         try
         {
             var parser = new ExpressionParser(formula);
-            var xValues = new double[gridSize, gridSize];
-            var yValues = new double[gridSize, gridSize];
-            var zValues = new double[gridSize, gridSize];
+            var xValues = new double[gridSize][];
+            var yValues = new double[gridSize][];
+            var zValues = new double[gridSize][];
 
             double xStep = (xMax - xMin) / (gridSize - 1);
             double yStep = (yMax - yMin) / (gridSize - 1);
 
             for (int i = 0; i < gridSize; i++)
             {
+                xValues[i] = new double[gridSize];
+                yValues[i] = new double[gridSize];
+                zValues[i] = new double[gridSize];
+
+                double x = xMin + i * xStep;
                 for (int j = 0; j < gridSize; j++)
                 {
-                    double x = xMin + i * xStep;
                     double y = yMin + j * yStep;
                     try
                     {
                         double z = parser.EvaluateWithXY(x, y);
-                        xValues[i, j] = x;
-                        yValues[i, j] = y;
-                        zValues[i, j] = z;
+                        xValues[i][j] = x;
+                        yValues[i][j] = y;
+                        zValues[i][j] = z;
                     }
                     catch (DivideByZeroException)
                     {
-                        xValues[i, j] = x;
-                        yValues[i, j] = y;
-                        zValues[i, j] = double.NaN;
+                        xValues[i][j] = x;
+                        yValues[i][j] = y;
+                        zValues[i][j] = double.NaN;
                     }
                     catch (OverflowException)
                     {
-                        xValues[i, j] = x;
-                        yValues[i, j] = y;
-                        zValues[i, j] = double.NaN;
+                        xValues[i][j] = x;
+                        yValues[i][j] = y;
+                        zValues[i][j] = double.NaN;
                     }
                 }
             }

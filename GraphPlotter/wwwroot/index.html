@@ -365,22 +365,14 @@
                         chart3d = null;
                     }
 
-                    const xArr = [];
-                    const yArr = [];
-                    const zArr = [];
-
-                    for (let i = 0; i < data.gridSize; i++) {
-                        xArr.push(data.xValues[i][0]);
-                        for (let j = 0; j < data.gridSize; j++) {
-                            if (i === 0) yArr.push(data.yValues[0][j]);
-                            zArr.push(data.zValues[i][j]);
-                        }
-                    }
+                    // Extract unique x values (first row) and y values (first column)
+                    const xUnique = data.xValues.map(row => row[0]);
+                    const yUnique = data.yValues[0].map((_, j) => data.yValues[0][j]);
 
                     const trace = {
                         z: data.zValues,
-                        x: data.xValues.map(row => row[0]),
-                        y: data.yValues[0],
+                        x: xUnique,
+                        y: yUnique,
                         type: 'surface',
                         colorscale: 'Viridis',
                         showscale: true,
